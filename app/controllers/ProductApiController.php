@@ -46,76 +46,6 @@ class ProductApiController
     }
 
 
-    // // Thêm sản phẩm mới
-    // public function store()
-    // {
-    //     header('Content-Type: application/json');
-
-    //     // Kiểm tra nếu dữ liệu là multipart/form-data
-    //     if ($_SERVER['REQUEST_METHOD'] !== 'POST' || empty($_FILES['image'])) {
-    //         http_response_code(400);
-    //         echo json_encode(['status' => 'error', 'message' => 'Invalid request. Image file is required.']);
-    //         exit;
-    //     }
-
-    //     // Lấy token từ Header
-    //     $headers = getallheaders();
-    //     $token = $headers['Authorization'] ?? null;
-
-    //     // Xác thực token
-    //     $user = AuthMiddleware::verifyToken($token);
-
-    //     if (!$user) {
-    //         http_response_code(401); // Unauthorized
-    //         echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
-    //         exit;
-    //     }
-
-    //     // Lấy dữ liệu từ $_POST
-    //     $name = $_POST['name'] ?? '';
-    //     $description = $_POST['description'] ?? '';
-    //     $price = $_POST['price'] ?? '';
-    //     $category_id = $_POST['category_id'] ?? null;
-
-    //     // Kiểm tra file hình ảnh
-    //     $image = $_FILES['image'];
-    //     $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-    //     if (!in_array($image['type'], $allowedTypes)) {
-    //         http_response_code(400);
-    //         echo json_encode(['status' => 'error', 'message' => 'Invalid image type. Only JPEG, PNG, or GIF allowed.']);
-    //         exit;
-    //     }
-
-    //     // Lưu hình ảnh vào thư mục
-    //     $uploadDir = 'public/images/';
-    //     if (!is_dir($uploadDir)) {
-    //         mkdir($uploadDir, 0777, true); // Tạo thư mục nếu chưa tồn tại
-    //     }
-    //     $imagePath = $uploadDir . basename($image['name']);
-    //     if (!move_uploaded_file($image['tmp_name'], $imagePath)) {
-    //         http_response_code(500);
-    //         echo json_encode(['status' => 'error', 'message' => 'Failed to upload image.']);
-    //         exit;
-    //     }
-
-    //     $result = $this->productModel->addProduct(
-    //         $name,
-    //         $description,
-    //         $price,
-    //         $category_id,
-    //         $imagePath
-    //     );
-    //     if (is_array($result)) {
-    //         http_response_code(400);
-    //         echo json_encode(['errors' => $result]);
-    //     } else {
-    //         http_response_code(201);
-    //         echo json_encode(['message' => 'Product created successfully']);
-    //     }
-    // }
-
-
-    // Thêm sản phẩm mới
     public function store()
     {
         header('Content-Type: application/json');
@@ -143,44 +73,47 @@ class ProductApiController
         // Lấy dữ liệu từ body
         $input = json_decode(file_get_contents('php://input'), true);
 
-        $name = $input['name'] ?? '';
-        $description = $input['description'] ?? '';
-        $price = $input['price'] ?? '';
-        $category_id = $input['category_id'] ?? null;
-        $imageBase64 = $input['image'] ?? null;
+        $name = $_POST['name'] ?? '';
+        $description = $_POST['description'] ?? '';
+        $price = $_POST['price'] ?? '';
+        $category_id = $_POST['category_id'] ?? null;
+        $imageFile = $_FILES['image'] ?? null;
 
         // Kiểm tra dữ liệu cần thiết
-        if (empty($name) || empty($price) || empty($imageBase64)) {
+        if (empty($name) || empty($price) || empty($imageFile)) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Name, price, and image are required.']);
             exit;
         }
 
-        // Kiểm tra và lưu chuỗi base64
-        $imageData = explode(',', $imageBase64);
-        if (count($imageData) !== 2 || strpos($imageData[0], 'base64') === false) {
-            http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Invalid image format.']);
-            exit;
-        }
-
-        $imageInfo = explode(';', $imageData[0]);
-        $mimeType = str_replace('data:', '', $imageInfo[0]);
+        // Kiểm tra loại tệp tin hình ảnh hợp lệ
         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-
-        if (!in_array($mimeType, $allowedTypes)) {
+        if (!in_array($imageFile['type'], $allowedTypes)) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Invalid image type. Only JPEG, PNG, or GIF allowed.']);
             exit;
         }
 
-        // Lưu chuỗi base64 vào cơ sở dữ liệu
+        // Lưu tệp hình ảnh vào thư mục tạm hoặc thư mục uploads
+        $uploadDir = 'public/images/';
+        $imagePath = $uploadDir . basename($imageFile['name']);
+        if (!move_uploaded_file($imageFile['tmp_name'], $imagePath)) {
+            http_response_code(500);
+            echo json_encode(['status' => 'error', 'message' => 'Failed to upload image.']);
+            exit;
+        }
+
+        // Chuyển đổi tệp hình ảnh sang base64
+        $imageData = base64_encode(file_get_contents($imagePath));
+        $imageBase64 = 'data:' . $imageFile['type'] . ';base64,' . $imageData;
+
+        // Gọi hàm lưu dữ liệu vào database
         $result = $this->productModel->addProduct(
             $name,
             $description,
             $price,
             $category_id,
-            $imageBase64 // Lưu chuỗi base64 thay vì đường dẫn file
+            $imageBase64
         );
 
         if (is_array($result)) {
@@ -194,31 +127,100 @@ class ProductApiController
 
 
 
+
+
     // Cập nhật sản phẩm theo ID
+    // public function update($id)
+    // {
+
+    //     header('Content-Type: application/json');
+    //     $data = json_decode(file_get_contents('php://input'), true);
+
+    //     // Lấy token từ Header
+    //     // $headers = getallheaders();
+    //     // $token = $headers['Authorization'] ?? null;
+
+    //     // // Xác thực token
+    //     // $user = AuthMiddleware::verifyToken($token);
+
+    //     // if (!$user) {
+    //     //     http_response_code(401); // Unauthorized
+    //     //     echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
+    //     //     exit;
+    //     // }
+
+    //     $name = $data['name'] ?? '';
+    //     $description = $data['description'] ?? '';
+    //     $price = $data['price'] ?? '';
+    //     $category_id = $data['category_id'] ?? null;
+    //     $imageBase64 = $data['image'] ?? null;
+
+    //     // Kiểm tra xem sản phẩm có tồn tại không
+    //     $product = $this->productModel->getProductById($id);
+
+    //     if (!$product) {
+    //         http_response_code(404);
+    //         echo json_encode(['status' => 'error', 'message' => 'Product not found.']);
+    //         exit;
+    //     }
+
+    //     // Xử lý hình ảnh
+    //     $imagePath = $product->image; // Giữ nguyên chuỗi base64 hiện tại
+    //     if (!empty($imageBase64)) {
+    //         $imageData = explode(',', $imageBase64);
+    //         if (count($imageData) !== 2 || strpos($imageData[0], 'base64') === false) {
+    //             http_response_code(400);
+    //             echo json_encode(['status' => 'error', 'message' => 'Invalid image format.']);
+    //             exit;
+    //         }
+
+    //         $imageInfo = explode(';', $imageData[0]);
+    //         $mimeType = str_replace('data:', '', $imageInfo[0]);
+    //         $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+
+    //         if (!in_array($mimeType, $allowedTypes)) {
+    //             http_response_code(400);
+    //             echo json_encode(['status' => 'error', 'message' => 'Invalid image type. Only JPEG, PNG, or GIF allowed.']);
+    //             exit;
+    //         }
+
+    //         // Cập nhật chuỗi base64 mới
+    //         $imagePath = $imageBase64;
+    //     }
+
+    //     $result = $this->productModel->updateProduct(
+    //         $id,
+    //         $name,
+    //         $description,
+    //         $price,
+    //         $category_id,
+    //         $imagePath
+    //     );
+    //     if ($result) {
+    //         echo json_encode(['message' => 'Product updated successfully']);
+    //     } else {
+    //         http_response_code(400);
+    //         echo json_encode(['message' => 'Product update failed']);
+    //     }
+    // }
+
     public function update($id)
     {
-
         header('Content-Type: application/json');
-        $data = json_decode(file_get_contents('php://input'), true);
 
-        // Lấy token từ Header
-        // $headers = getallheaders();
-        // $token = $headers['Authorization'] ?? null;
+        // Kiểm tra phương thức HTTP
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(400);
+            echo json_encode(['status' => 'error', 'message' => 'Invalid request.']);
+            exit;
+        }
 
-        // // Xác thực token
-        // $user = AuthMiddleware::verifyToken($token);
-
-        // if (!$user) {
-        //     http_response_code(401); // Unauthorized
-        //     echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
-        //     exit;
-        // }
-
-        $name = $data['name'] ?? '';
-        $description = $data['description'] ?? '';
-        $price = $data['price'] ?? '';
-        $category_id = $data['category_id'] ?? null;
-        $imageBase64 = $data['image'] ?? null;
+        // Lấy dữ liệu từ body
+        $name = $_POST['name'] ?? '';
+        $description = $_POST['description'] ?? '';
+        $price = $_POST['price'] ?? '';
+        $category_id = $_POST['category_id'] ?? null;
+        $imageFile = $_FILES['image'] ?? null;
 
         // Kiểm tra xem sản phẩm có tồn tại không
         $product = $this->productModel->getProductById($id);
@@ -230,29 +232,31 @@ class ProductApiController
         }
 
         // Xử lý hình ảnh
-        $imagePath = $product->image; // Giữ nguyên chuỗi base64 hiện tại
-        if (!empty($imageBase64)) {
-            $imageData = explode(',', $imageBase64);
-            if (count($imageData) !== 2 || strpos($imageData[0], 'base64') === false) {
-                http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'Invalid image format.']);
-                exit;
-            }
-
-            $imageInfo = explode(';', $imageData[0]);
-            $mimeType = str_replace('data:', '', $imageInfo[0]);
+        $imagePath = $product->image; // Giữ nguyên chuỗi base64 hiện tại nếu không có file mới
+        if (!empty($imageFile)) {
+            // Kiểm tra loại tệp tin hình ảnh hợp lệ
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
-
-            if (!in_array($mimeType, $allowedTypes)) {
+            if (!in_array($imageFile['type'], $allowedTypes)) {
                 http_response_code(400);
                 echo json_encode(['status' => 'error', 'message' => 'Invalid image type. Only JPEG, PNG, or GIF allowed.']);
                 exit;
             }
 
-            // Cập nhật chuỗi base64 mới
-            $imagePath = $imageBase64;
+            // Lưu tệp hình ảnh vào thư mục tạm hoặc thư mục uploads
+            $uploadDir = 'public/images/';
+            $imagePathFile = $uploadDir . basename($imageFile['name']);
+            if (!move_uploaded_file($imageFile['tmp_name'], $imagePathFile)) {
+                http_response_code(500);
+                echo json_encode(['status' => 'error', 'message' => 'Failed to upload image.']);
+                exit;
+            }
+
+            // Chuyển đổi tệp hình ảnh sang base64
+            $imageData = base64_encode(file_get_contents($imagePathFile));
+            $imagePath = 'data:' . $imageFile['type'] . ';base64,' . $imageData;
         }
 
+        // Cập nhật sản phẩm
         $result = $this->productModel->updateProduct(
             $id,
             $name,
@@ -261,6 +265,7 @@ class ProductApiController
             $category_id,
             $imagePath
         );
+
         if ($result) {
             echo json_encode(['message' => 'Product updated successfully']);
         } else {
@@ -268,6 +273,7 @@ class ProductApiController
             echo json_encode(['message' => 'Product update failed']);
         }
     }
+
 
 
 
@@ -637,6 +643,4 @@ class ProductApiController
         ];
         echo json_encode($response);
     }
-
-
 }
