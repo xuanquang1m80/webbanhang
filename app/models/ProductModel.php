@@ -15,7 +15,7 @@ class ProductModel
         $this->conn = $db;
     }
 
-    public function addProduct($name, $description, $price, $category_id,$image)
+    public function addProduct($name, $description, $price, $category_id, $image)
     {
 
         $errors = [];
@@ -98,7 +98,7 @@ class ProductModel
         return $result;
     }
 
-    
+
     public function deleteProduct($id)
     {
         $query = "DELETE FROM " . $this->table_name . " WHERE id=:id";
@@ -108,5 +108,33 @@ class ProductModel
             return true;
         }
         return false;
+    }
+
+
+    public function getOrdersByUserId($userId)
+    {
+        $query = "SELECT 
+                orders.id AS order_id,
+                orders.name AS order_name,
+                orders.phone,
+                orders.address,
+                orders.created_at,
+                product.name AS product_name, 
+                order_details.quantity,
+                order_details.price
+              FROM 
+                orders
+              INNER JOIN 
+                order_details ON orders.id = order_details.order_id
+              INNER JOIN 
+                product ON order_details.product_id = product.id
+              WHERE 
+                orders.user_id = :user_id";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user_id', $userId, PDO::PARAM_INT);
+        $stmt->execute();
+
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 }

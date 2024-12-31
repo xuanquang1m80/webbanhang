@@ -6,6 +6,7 @@ use App\Models\ProductModel;
 use App\Config\Database;
 use App\Middleware\AuthMiddleware;
 use Exception;
+use Firebase\JWT\JWT;
 
 class ProductApiController
 {
@@ -553,5 +554,37 @@ class ProductApiController
                 'message' => 'An error occurred during checkout: ' . $e->getMessage()
             ]);
         }
+    }
+
+
+    public function getUserOrders()
+    {
+        header('Content-Type: application/json');
+
+        // Lấy token từ Header
+        $headers = getallheaders();
+        $token = $headers['Authorization'] ?? null;
+
+        // Xác thực token
+        $user = AuthMiddleware::verifyToken($token);
+
+        if (!$user) {
+            http_response_code(401); // Unauthorized
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
+            exit;
+        }
+        $userId = $user['user_id'];
+
+
+        // Truy vấn danh sách đơn hàng của user
+        $orders = $this->productModel->getOrdersByUserId($userId);
+
+        if (!$orders) {
+            echo json_encode(['status' => 'success', 'data' => []]);
+            return;
+        }
+
+        // Trả về danh sách đơn hàng
+        echo json_encode(['status' => 'success', 'data' => $orders]);
     }
 }
