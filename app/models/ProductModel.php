@@ -137,4 +137,27 @@ class ProductModel
 
         return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
+
+    public function getTotalProducts()
+    {
+        $query = "SELECT COUNT(*) AS total_products FROM product";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['total_products'];
+    }
+
+
+    public function getTotalOrders()
+    {
+        $query = "SELECT COUNT(*) AS total_orders FROM order_details";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->execute();
+
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $result['total_orders'];
+    }
 }

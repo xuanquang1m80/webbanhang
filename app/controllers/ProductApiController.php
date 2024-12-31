@@ -587,4 +587,56 @@ class ProductApiController
         // Trả về danh sách đơn hàng
         echo json_encode(['status' => 'success', 'data' => $orders]);
     }
+
+    public function AllProduct()
+    {
+        header('Content-Type: application/json');
+
+        // Lấy token từ Header
+        // $headers = getallheaders();
+        // $token = $headers['Authorization'] ?? null;
+
+        // // Xác thực token
+        // $user = AuthMiddleware::verifyToken($token);
+
+        // if (!$user) {
+        //     http_response_code(401); // Unauthorized
+        //     echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
+        //     exit;
+        // }
+        $response = [
+            'status' => 'success',
+            'data' => [
+                'total_products' => $this->productModel->getTotalProducts()
+            ]
+        ];
+        echo json_encode($response);
+    }
+
+    public function AllOrders()
+    {
+        header('Content-Type: application/json');
+
+        // Lấy token từ Header
+        // $headers = getallheaders();
+        // $token = $headers['Authorization'] ?? null;
+
+        // // Xác thực token
+        // $user = AuthMiddleware::verifyToken($token);
+
+        // if (!$user) {
+        //     http_response_code(401); // Unauthorized
+        //     echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
+        //     exit;
+        // }
+        $response = [
+            'status' => 'success',
+            'data' => [
+                'total_orders'  => $this->productModel->getTotalOrders()
+            ]
+        ];
+        echo json_encode($response);
+    }
+
+
 }
