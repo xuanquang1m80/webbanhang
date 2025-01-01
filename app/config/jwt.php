@@ -6,4 +6,3 @@ return [
     'audience' => 'your_domain.com',       // Đối tượng sử dụng token
     'expiration_time' => 3600,             // Thời gian hết hạn (giây)
 ];
-

@@ -7,7 +7,14 @@ $url = rtrim($url, '/');
 $url = filter_var($url, FILTER_SANITIZE_URL);
 $url = explode('/', $url);
 
-
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header("Access-Control-Allow-Origin: http://localhost:3000");
+    header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type, Authorization");
+    header("Access-Control-Allow-Credentials: true");
+    http_response_code(200);
+    exit;
+}
 if (isset($url[0]) && $url[0] === 'api' && isset($url[1])) {
     $apiControllerName = ucfirst($url[1]) . 'ApiController';
 
@@ -25,8 +32,7 @@ if (isset($url[0]) && $url[0] === 'api' && isset($url[1])) {
             case 'POST':
                 if ($id) {
                     $action = 'update';
-                }
-                else{
+                } else {
                     $action = 'store';
                 }
                 break;
@@ -89,6 +95,3 @@ if (isset($url[0]) && $url[0] === 'api' && isset($url[1])) {
         exit;
     }
 }
-
-
-
