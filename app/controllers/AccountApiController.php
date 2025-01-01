@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 namespace App\Controllers;
 
@@ -6,7 +6,8 @@ use App\Models\AccountModel;
 use App\Config\Database;
 use Firebase\JWT\JWT;
 
-class AccountApiController{
+class AccountApiController
+{
 
     private $accountModel;
     private $db;
@@ -50,7 +51,7 @@ class AccountApiController{
                         'data' => [
                             'user_id' => $account->id,
                             'username' => $account->username,
-                            'roles'=> $roles
+                            'roles' => $roles
                         ],
                     ];
 
@@ -61,7 +62,8 @@ class AccountApiController{
                     echo json_encode([
                         'status' => 'success',
                         'message' => 'Login successful',
-                        'token' => $jwt
+                        'token' => $jwt,
+                        'username' => $account->username,
                     ]);
                     exit;
                 } else {
@@ -135,7 +137,7 @@ class AccountApiController{
             $userId = $this->accountModel->createAccount($newAccount);
 
             if ($userId) {
-                $roleId = 3; 
+                $roleId = 3;
                 $this->accountModel->assignRoleToUser($userId, $roleId);
 
                 http_response_code(201);
@@ -161,10 +163,4 @@ class AccountApiController{
             exit;
         }
     }
-
-
-
 }
-
-
-?>
