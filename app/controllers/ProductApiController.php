@@ -622,7 +622,7 @@ class ProductApiController
         $query = "
             SELECT ci.product_id, ci.quantity, p.price
             FROM cart_items ci
-            JOIN cart c ON ci.cart_id = c.id
+            JOIN carts c ON ci.cart_id = c.id
             JOIN product p ON ci.product_id = p.id
             WHERE c.user_id = :user_id
         ";

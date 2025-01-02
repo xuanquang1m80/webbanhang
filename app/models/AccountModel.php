@@ -53,7 +53,11 @@ class AccountModel
         $stmt->bindParam(':username', $accountData['username']);
         $stmt->bindParam(':password', $accountData['password']);
 
-        return $stmt->execute();
+        if ($stmt->execute()) {
+            return $this->conn->lastInsertId(); // Trả về ID của tài khoản vừa tạo
+        }
+
+        return false;
     }
 
 
@@ -66,6 +70,7 @@ class AccountModel
 
         return $stmt->execute();
     }
+
 
     public function getRolesByUserId($userId)
     {
