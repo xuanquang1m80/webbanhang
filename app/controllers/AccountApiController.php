@@ -64,6 +64,7 @@ class AccountApiController
                         'message' => 'Login successful',
                         'token' => $jwt,
                         'username' => $account->username,
+                        'roles' => $roles,
                     ]);
                     exit;
                 } else {

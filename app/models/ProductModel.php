@@ -101,13 +101,27 @@ class ProductModel
 
     public function deleteProduct($id)
     {
-        $query = "DELETE FROM " . $this->table_name . " WHERE id=:id";
+        // try {
+        $this->conn->beginTransaction();
+
+        // Xóa khỏi cart_items trước
+        $query = "DELETE FROM cart_items WHERE product_id = :id";
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':id', $id);
-        if ($stmt->execute()) {
-            return true;
-        }
-        return false;
+        $stmt->execute();
+
+        // Xóa sản phẩm
+        $query = "DELETE FROM product WHERE id = :id";
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':id', $id);
+        $stmt->execute();
+
+        $this->conn->commit();
+        return true;
+        // } catch (Exception $e) {
+        //     $this->conn->rollBack();
+        //     return false;
+        // }
     }
 
 
