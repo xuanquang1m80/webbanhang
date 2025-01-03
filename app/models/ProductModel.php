@@ -15,9 +15,16 @@ class ProductModel
         $this->conn = $db;
     }
 
-    public function addProduct($name, $description, $price, $category_id, $image)
+    private function sanitizeInput($value)
     {
+        if ($value === null || $value === '') {
+            return null;
+        }
+        return htmlspecialchars(strip_tags((string)$value));
+    }
 
+    private function validateInput($name, $description, $price, $category_id)
+    {
         $errors = [];
         if (empty($name)) {
             $errors['name'] = 'Tên sản phẩm không được để trống';
@@ -28,51 +35,57 @@ class ProductModel
         if (!is_numeric($price) || $price < 0) {
             $errors['price'] = 'Giá sản phẩm không hợp lệ';
         }
+        return $errors;
+    }
+
+    public function addProduct($name, $description, $price, $category_id, $image)
+    {
+        $errors = $this->validateInput($name, $description, $price, $category_id);
         if (count($errors) > 0) {
             return $errors;
         }
 
+        $name = $this->sanitizeInput($name);
+        $description = $this->sanitizeInput($description);
+        $price = $this->sanitizeInput($price);
+        $category_id = $category_id ? (int)$this->sanitizeInput($category_id) : null;
 
-        $query = "INSERT INTO " . $this->table_name . " (name, description, price,
-        category_id,image) VALUES (:name, :description, :price, :category_id, :image)";
+        $query = "INSERT INTO " . $this->table_name . " 
+                 (name, description, price, category_id, image) 
+                 VALUES (:name, :description, :price, :category_id, :image)";
+
         $stmt = $this->conn->prepare($query);
-        $name = htmlspecialchars(strip_tags($name));
-        $description = htmlspecialchars(strip_tags($description));
-        $price = htmlspecialchars(strip_tags($price));
-        $category_id = htmlspecialchars(strip_tags($category_id));
         $stmt->bindParam(':name', $name);
         $stmt->bindParam(':description', $description);
         $stmt->bindParam(':price', $price);
-        $stmt->bindParam(':category_id', $category_id);
+        $stmt->bindParam(':category_id', $category_id, PDO::PARAM_INT);
         $stmt->bindParam(':image', $image);
 
-        if ($stmt->execute()) {
-            return true;
-        }
-        return false;
+        return $stmt->execute();
     }
-
 
     public function updateProduct($id, $name, $description, $price, $category_id, $image)
     {
+        $name = $this->sanitizeInput($name);
+        $description = $this->sanitizeInput($description);
+        $price = $this->sanitizeInput($price);
+        $category_id = $category_id ? (int)$this->sanitizeInput($category_id) : null;
 
-        $query = "UPDATE " . $this->table_name . " SET name=:name,
-        description=:description, price=:price, category_id=:category_id, image=:image WHERE id=:id";
+        $query = "UPDATE " . $this->table_name . " 
+                 SET name = :name, description = :description, 
+                     price = :price, category_id = :category_id, 
+                     image = :image 
+                 WHERE id = :id";
+
         $stmt = $this->conn->prepare($query);
-        $name = htmlspecialchars(strip_tags($name));
-        $description = htmlspecialchars(strip_tags($description));
-        $price = htmlspecialchars(strip_tags($price));
-        $category_id = htmlspecialchars(strip_tags($category_id));
         $stmt->bindParam(':id', $id);
         $stmt->bindParam(':name', $name);
         $stmt->bindParam(':description', $description);
         $stmt->bindParam(':price', $price);
-        $stmt->bindParam(':category_id', $category_id);
+        $stmt->bindParam(':category_id', $category_id, PDO::PARAM_INT);
         $stmt->bindParam(':image', $image);
-        if ($stmt->execute()) {
-            return true;
-        }
-        return false;
+
+        return $stmt->execute();
     }
 
 

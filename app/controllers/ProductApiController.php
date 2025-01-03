@@ -208,41 +208,36 @@ class ProductApiController
     {
         header('Content-Type: application/json');
 
-        // Kiểm tra phương thức HTTP
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Invalid request.']);
             exit;
         }
 
-        // Lấy dữ liệu từ body
-        $name = $_POST['name'] ?? '';
-        $description = $_POST['description'] ?? '';
-        $price = $_POST['price'] ?? '';
-        $category_id = $_POST['category_id'] ?? null;
-        $imageFile = $_FILES['image'] ?? null;
-
-        // Kiểm tra xem sản phẩm có tồn tại không
         $product = $this->productModel->getProductById($id);
-
         if (!$product) {
             http_response_code(404);
             echo json_encode(['status' => 'error', 'message' => 'Product not found.']);
             exit;
         }
 
-        // Xử lý hình ảnh
-        $imagePath = $product->image; // Giữ nguyên chuỗi base64 hiện tại nếu không có file mới
+        $name = $_POST['name'] ?? '';
+        $description = $_POST['description'] ?? '';
+        $price = $_POST['price'] ?? '';
+        $category_id = isset($_POST['category_id']) && $_POST['category_id'] !== ''
+            ? (int)$_POST['category_id']
+            : null;
+        $imageFile = $_FILES['image'] ?? null;
+
+        $imagePath = $product->image;
         if (!empty($imageFile)) {
-            // Kiểm tra loại tệp tin hình ảnh hợp lệ
             $allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
             if (!in_array($imageFile['type'], $allowedTypes)) {
                 http_response_code(400);
-                echo json_encode(['status' => 'error', 'message' => 'Invalid image type. Only JPEG, PNG, or GIF allowed.']);
+                echo json_encode(['status' => 'error', 'message' => 'Invalid image type.']);
                 exit;
             }
 
-            // Lưu tệp hình ảnh vào thư mục tạm hoặc thư mục uploads
             $uploadDir = 'public/images/';
             $imagePathFile = $uploadDir . basename($imageFile['name']);
             if (!move_uploaded_file($imageFile['tmp_name'], $imagePathFile)) {
@@ -251,12 +246,10 @@ class ProductApiController
                 exit;
             }
 
-            // Chuyển đổi tệp hình ảnh sang base64
             $imageData = base64_encode(file_get_contents($imagePathFile));
             $imagePath = 'data:' . $imageFile['type'] . ';base64,' . $imageData;
         }
 
-        // Cập nhật sản phẩm
         $result = $this->productModel->updateProduct(
             $id,
             $name,
@@ -273,7 +266,6 @@ class ProductApiController
             echo json_encode(['message' => 'Product update failed']);
         }
     }
-
 
 
 
