@@ -569,33 +569,27 @@ class ProductApiController
         ]);
     }
 
-
     public function processCheckout()
     {
         header('Content-Type: application/json');
 
-        // Kiểm tra phương thức HTTP
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['status' => 'error', 'message' => 'Invalid request method.']);
             return;
         }
 
-        // Lấy token từ Header
         $headers = getallheaders();
         $token = $headers['Authorization'] ?? null;
-
         $user = AuthMiddleware::verifyToken($token);
 
         if (!$user) {
-            http_response_code(401); // Unauthorized
-            echo json_encode(['status' => 'error', 'message' => 'Unauthorized. Invalid or missing token.']);
+            http_response_code(401);
+            echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']);
             return;
         }
 
         $userId = $user['user_id'];
-
-        // Lấy thông tin khách hàng từ body của request
         $data = json_decode(file_get_contents("php://input"), true);
         $name = $data['name'] ?? null;
         $phone = $data['phone'] ?? null;
@@ -603,14 +597,10 @@ class ProductApiController
 
         if (!$name || !$phone || !$address) {
             http_response_code(400);
-            echo json_encode(['status' => 'error', 'message' => 'Missing required fields (name, phone, address).']);
+            echo json_encode(['status' => 'error', 'message' => 'Missing required fields.']);
             return;
         }
 
-
-
-
-        // Truy vấn giỏ hàng từ cơ sở dữ liệu
         $query = "
             SELECT ci.product_id, ci.quantity, p.price
             FROM cart_items ci
@@ -623,17 +613,14 @@ class ProductApiController
         $stmt->execute();
         $cartItems = $stmt->fetchAll();
 
-        // Kiểm tra giỏ hàng có trống không
         if (empty($cartItems)) {
             http_response_code(400);
             echo json_encode(['status' => 'error', 'message' => 'Cart is empty.']);
             return;
         }
 
-        // Bắt đầu transaction
         $this->db->beginTransaction();
         try {
-            // Lưu thông tin đơn hàng vào bảng orders
             $query = "INSERT INTO orders (user_id, name, phone, address) VALUES (:user_id, :name, :phone, :address)";
             $stmt = $this->db->prepare($query);
             $stmt->bindParam(':user_id', $userId);
@@ -643,7 +630,6 @@ class ProductApiController
             $stmt->execute();
             $orderId = $this->db->lastInsertId();
 
-            // Lưu chi tiết đơn hàng vào bảng order_details
             foreach ($cartItems as $item) {
                 $query = "INSERT INTO order_details (order_id, product_id, quantity, price) VALUES (:order_id, :product_id, :quantity, :price)";
                 $stmt = $this->db->prepare($query);
@@ -654,24 +640,94 @@ class ProductApiController
                 $stmt->execute();
             }
 
-            // Commit transaction
             $this->db->commit();
 
-            // Trả về phản hồi thành công
-            http_response_code(201);
+            // Chuẩn bị thông tin thanh toán
+            $totalAmount = array_reduce($cartItems, function ($sum, $item) {
+                return $sum + ($item['price'] * $item['quantity']);
+            }, 0);
+
+            $paymentUrl = $this->initVNPayPayment($orderId, $totalAmount);
+
             echo json_encode([
-                'status' => 'success',
-                'message' => 'Checkout successful.',
-                'order_id' => $orderId
+                'status' => 'pending',
+                'message' => 'Redirect to payment.',
+                'payment_url' => $paymentUrl
             ]);
         } catch (Exception $e) {
-            // Rollback transaction nếu có lỗi
             $this->db->rollBack();
             http_response_code(500);
-            echo json_encode([
-                'status' => 'error',
-                'message' => 'An error occurred during checkout: ' . $e->getMessage()
-            ]);
+            echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+        }
+    }
+
+
+    private function initVNPayPayment($orderId, $amount)
+    {
+        $vnp_Url = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+        $vnp_ReturnUrl = "http://localhost:3000/order-success"; // Change this
+        $vnp_TmnCode = "WTD1ZKUP";  // Get from VNPay
+        $vnp_HashSecret = "O7U8M9GUSSH8OG1RMM175PWTS4RWGYX1"; // Get from VNPay
+
+        $vnp_TxnRef = $orderId; // Order ID
+        $vnp_OrderInfo = "Payment for order #" . $orderId;
+        $vnp_OrderType = "billpayment";
+        $vnp_Amount = $amount * 100; // Convert to VND, no decimals
+        $vnp_Locale = 'vn';
+        $vnp_IpAddr = $_SERVER['REMOTE_ADDR'];
+
+        $inputData = array(
+            "vnp_Version" => "2.1.0",
+            "vnp_TmnCode" => $vnp_TmnCode,
+            "vnp_Amount" => $vnp_Amount,
+            "vnp_Command" => "pay",
+            "vnp_CreateDate" => date('YmdHis'),
+            "vnp_CurrCode" => "VND",
+            "vnp_IpAddr" => $vnp_IpAddr,
+            "vnp_Locale" => $vnp_Locale,
+            "vnp_OrderInfo" => $vnp_OrderInfo,
+            "vnp_OrderType" => $vnp_OrderType,
+            "vnp_ReturnUrl" => $vnp_ReturnUrl,
+            "vnp_TxnRef" => $vnp_TxnRef,
+        );
+
+        ksort($inputData);
+        $query = "";
+        $i = 0;
+        $hashdata = "";
+        foreach ($inputData as $key => $value) {
+            if ($i == 1) {
+                $hashdata .= '&' . urlencode($key) . "=" . urlencode($value);
+            } else {
+                $hashdata .= urlencode($key) . "=" . urlencode($value);
+                $i = 1;
+            }
+            $query .= urlencode($key) . "=" . urlencode($value) . '&';
+        }
+
+        $vnp_Url = $vnp_Url . "?" . $query;
+        $vnpSecureHash = hash_hmac('sha512', $hashdata, $vnp_HashSecret);
+        $vnp_Url .= 'vnp_SecureHash=' . $vnpSecureHash;
+
+        return $vnp_Url;
+    }
+
+
+    public function handleVNPayReturn()
+    {
+        $responseCode = $_GET['vnp_ResponseCode'];
+        $orderId = $_GET['vnp_TxnRef'];
+        $transactionNo = $_GET['vnp_TransactionNo'];
+
+        if ($responseCode == '00') { // Thanh toán thành công
+            $query = "UPDATE orders SET payment_status = 'paid' WHERE id = :order_id";
+            $stmt = $this->db->prepare($query);
+            $stmt->bindParam(':order_id', $orderId);
+            $stmt->execute();
+
+            echo "Payment successful for Order ID: " . $orderId;
+        } else { // Thanh toán thất bại
+            echo "Payment failed. Please try again.";
         }
     }
 
